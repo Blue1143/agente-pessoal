@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block titulo %}Excluir matéria · Meus Estudos{% endblock %}
+
+{% block conteudo %}
+<section class="cartao confirmacao">
+  <h2>Excluir matéria?</h2>
+  <p>
+    Você está prestes a excluir <strong>{{ materia.nome }}</strong>
+    ({{ materia.area }}). Esta ação não pode ser desfeita.
+  </p>
+  {% if materia.descricao %}<p class="descricao">{{ materia.descricao }}</p>{% endif %}
+
+  <div class="acoes">
+    {# Só este formulário (POST) apaga de fato. #}
+    <form method="post" action="{{ url_for('excluir', materia_id=materia.id) }}">
+      <button type="submit" class="botao perigo">Sim, excluir</button>
+    </form>
+    <a class="botao" href="{{ url_for('inicio', area=materia.area) }}">Cancelar</a>
+  </div>
+</section>
+{% endblock %}

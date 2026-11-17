@@ -1,0 +1,54 @@
+# ============================================================
+# O que NUNCA deve ir para o GitHub
+# ============================================================
+
+# --- Segredos e configurações locais ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+credenciais*.json
+secrets/
+
+# --- Dados pessoais ---
+# Banco de dados com suas matérias (fica só no seu computador)
+dados/
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# PDFs enviados / materiais de estudo (próximas etapas)
+uploads/
+pdfs/
+*.pdf
+
+# --- Dependências (recriadas com: pip install -r requirements.txt) ---
+.venv/
+venv/
+env/
+node_modules/
+
+# --- Arquivos temporários e caches ---
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.log
+*.tmp
+*.bak
+*~
+
+# --- Editores e sistema operacional ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

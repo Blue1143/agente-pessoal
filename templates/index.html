@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block conteudo %}
+
+{# Abas das áreas: cada link apenas muda o filtro ?area=... #}
+<nav class="abas" aria-label="Áreas de estudo">
+  <a href="{{ url_for('inicio') }}" class="aba {% if not area_atual %}ativa{% endif %}">
+    Todas <span class="contador">{{ contagem.values() | sum }}</span>
+  </a>
+  {% for area in areas %}
+  <a href="{{ url_for('inicio', area=area) }}"
+     class="aba area-{{ loop.index }} {% if area == area_atual %}ativa{% endif %}">
+    {{ area }} <span class="contador">{{ contagem[area] }}</span>
+  </a>
+  {% endfor %}
+</nav>
+
+{% if mensagem %}
+<p class="aviso sucesso" role="status">{{ mensagem }}</p>
+{% endif %}
+
+<div class="grade">
+  <section class="cartao" aria-labelledby="titulo-form">
+    <h2 id="titulo-form">Nova matéria</h2>
+
+    {% if erros %}
+    <ul class="aviso erro" role="alert">
+      {% for erro in erros %}<li>{{ erro }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('cadastrar') }}">
+      <label for="nome">Nome</label>
+      <input id="nome" name="nome" type="text" required maxlength="{{ limite_nome }}"
+             value="{{ formulario.nome }}" placeholder="Ex.: Anatomia Humana">
+
+      <label for="area">Área</label>
+      <select id="area" name="area" required>
+        <option value="" disabled {% if not formulario.area %}selected{% endif %}>Escolha…</option>
+        {% for area in areas %}
+        <option value="{{ area }}" {% if area == formulario.area %}selected{% endif %}>{{ area }}</option>
+        {% endfor %}
+      </select>
+
+      <label for="descricao">Descrição <span class="opcional">(opcional)</span></label>
+      <textarea id="descricao" name="descricao" rows="3" maxlength="{{ limite_descricao }}"
+                placeholder="Ex.: Professora, semestre, objetivos…">{{ formulario.descricao }}</textarea>
+
+      <button type="submit" class="botao primario">Cadastrar matéria</button>
+    </form>
+  </section>
+
+  <section class="cartao" aria-labelledby="titulo-lista">
+    <h2 id="titulo-lista">
+      {% if area_atual %}Matérias de {{ area_atual }}{% else %}Todas as matérias{% endif %}
+    </h2>
+
+    {% if materias %}
+    <ul class="lista">
+      {% for materia in materias %}
+      <li class="item area-{{ areas.index(materia.area) + 1 }}">
+        <div class="item-texto">
+          <strong>{{ materia.nome }}</strong>
+          {% if not area_atual %}<span class="etiqueta">{{ materia.area }}</span>{% endif %}
+          {% if materia.descricao %}<p>{{ materia.descricao }}</p>{% endif %}
+        </div>
+        <a class="botao perigo pequeno" href="{{ url_for('confirmar_exclusao', materia_id=materia.id) }}"
+           aria-label="Excluir {{ materia.nome }}">Excluir</a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="vazio">Nenhuma matéria cadastrada {% if area_atual %}em {{ area_atual }}{% endif %} ainda.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
