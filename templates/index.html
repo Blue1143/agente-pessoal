@@ -60,8 +60,9 @@
       {% for materia in materias %}
       <li class="item area-{{ areas.index(materia.area) + 1 }}">
         <div class="item-texto">
-          <strong>{{ materia.nome }}</strong>
+          <a class="link-materia" href="{{ url_for('ver_materia', materia_id=materia.id) }}"><strong>{{ materia.nome }}</strong></a>
           {% if not area_atual %}<span class="etiqueta">{{ materia.area }}</span>{% endif %}
+          <span class="qtd-docs">📄 {{ materia.total_documentos }} PDF{{ "s" if materia.total_documentos != 1 }}</span>
           {% if materia.descricao %}<p>{{ materia.descricao }}</p>{% endif %}
         </div>
         <a class="botao perigo pequeno" href="{{ url_for('confirmar_exclusao', materia_id=materia.id) }}"

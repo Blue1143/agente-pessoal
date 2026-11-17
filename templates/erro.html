@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block titulo %}{{ titulo }} · Meus Estudos{% endblock %}
+
+{% block conteudo %}
+<section class="cartao confirmacao">
+  <h2>{{ titulo }}</h2>
+  <p>{{ texto }}</p>
+  <div class="acoes">
+    {% if voltar %}<a class="botao" href="{{ voltar }}">Voltar</a>{% endif %}
+    <a class="botao" href="{{ url_for('inicio') }}">Início</a>
+  </div>
+</section>
+{% endblock %}

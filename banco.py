@@ -27,6 +27,9 @@ def abrir(caminho):
     caminho.parent.mkdir(parents=True, exist_ok=True)
     conexao = sqlite3.connect(caminho)
     conexao.row_factory = sqlite3.Row  # permite ler colunas pelo nome: linha["nome"]
+    # Liga as "chaves estrangeiras": apagar um documento apaga suas páginas,
+    # e apagar uma matéria apaga seus documentos (ON DELETE CASCADE).
+    conexao.execute("PRAGMA foreign_keys = ON")
     try:
         yield conexao
         conexao.commit()
@@ -50,6 +53,32 @@ def inicializar(caminho):
                 descricao  TEXT NOT NULL DEFAULT '',
                 criada_em  TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
             )
+            """
+        )
+        # Etapa 2: PDFs. "IF NOT EXISTS" faz isso funcionar também em bancos
+        # criados na etapa 1: as tabelas novas são acrescentadas sem perder nada.
+        conexao.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS documentos (
+                id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+                materia_id         INTEGER NOT NULL REFERENCES materias(id) ON DELETE CASCADE,
+                nome_original      TEXT NOT NULL,          -- nome que você deu ao arquivo
+                arquivo            TEXT NOT NULL UNIQUE,   -- nome salvo em dados/pdfs/
+                tamanho_bytes      INTEGER NOT NULL,
+                sha256             TEXT NOT NULL,          -- "impressão digital" do arquivo
+                total_paginas      INTEGER NOT NULL,
+                paginas_com_texto  INTEGER NOT NULL,
+                enviado_em         TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_documentos_materia ON documentos(materia_id);
+
+            -- Uma linha por página: é isso que preserva a separação por página.
+            CREATE TABLE IF NOT EXISTS paginas (
+                documento_id  INTEGER NOT NULL REFERENCES documentos(id) ON DELETE CASCADE,
+                numero        INTEGER NOT NULL CHECK (numero >= 1),
+                texto         TEXT NOT NULL DEFAULT '',
+                PRIMARY KEY (documento_id, numero)
+            );
             """
         )
 
@@ -97,9 +126,16 @@ def adicionar_materia(caminho, nome, area, descricao=""):
         return cursor.lastrowid
 
 
+# Colunas lidas de uma matéria, incluindo quantos PDFs ela tem.
+_COLUNAS_MATERIA = """
+    id, nome, area, descricao, criada_em,
+    (SELECT COUNT(*) FROM documentos d WHERE d.materia_id = materias.id) AS total_documentos
+"""
+
+
 def listar_materias(caminho, area=None):
     """Lista as matérias, de todas as áreas ou só de uma."""
-    sql = "SELECT id, nome, area, descricao, criada_em FROM materias"
+    sql = f"SELECT {_COLUNAS_MATERIA} FROM materias"
     parametros = ()
     if area:
         sql += " WHERE area = ?"
@@ -125,7 +161,7 @@ def buscar_materia(caminho, materia_id):
     """Devolve a matéria com esse id, ou None se não existir."""
     with abrir(caminho) as conexao:
         linha = conexao.execute(
-            "SELECT id, nome, area, descricao, criada_em FROM materias WHERE id = ?",
+            f"SELECT {_COLUNAS_MATERIA} FROM materias WHERE id = ?",
             (materia_id,),
         ).fetchone()
     return dict(linha) if linha else None
@@ -135,4 +171,106 @@ def excluir_materia(caminho, materia_id):
     """Apaga a matéria. Devolve True se algo foi apagado."""
     with abrir(caminho) as conexao:
         cursor = conexao.execute("DELETE FROM materias WHERE id = ?", (materia_id,))
+        return cursor.rowcount > 0
+
+
+# ======================================================================
+# Documentos (PDFs) — etapa 2
+# ======================================================================
+
+def adicionar_documento(caminho, materia_id, nome_original, arquivo, tamanho_bytes, sha256, paginas):
+    """Grava o documento e o texto de cada página numa única transação.
+
+    `paginas` é uma lista de textos: paginas[0] é a página 1, e assim por diante.
+    Se algo falhar no meio, nada fica gravado pela metade.
+    """
+    paginas_com_texto = sum(1 for texto in paginas if texto.strip())
+    with abrir(caminho) as conexao:
+        cursor = conexao.execute(
+            """
+            INSERT INTO documentos
+                (materia_id, nome_original, arquivo, tamanho_bytes, sha256,
+                 total_paginas, paginas_com_texto)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (materia_id, nome_original, arquivo, tamanho_bytes, sha256,
+             len(paginas), paginas_com_texto),
+        )
+        documento_id = cursor.lastrowid
+        conexao.executemany(
+            "INSERT INTO paginas (documento_id, numero, texto) VALUES (?, ?, ?)",
+            [(documento_id, numero, texto) for numero, texto in enumerate(paginas, start=1)],
+        )
+        return documento_id
+
+
+_COLUNAS_DOCUMENTO = """
+    d.id, d.materia_id, d.nome_original, d.arquivo, d.tamanho_bytes, d.sha256,
+    d.total_paginas, d.paginas_com_texto, d.enviado_em,
+    m.nome AS materia_nome, m.area AS materia_area
+"""
+
+
+def listar_documentos(caminho, materia_id):
+    """Documentos de uma matéria, do mais recente para o mais antigo."""
+    with abrir(caminho) as conexao:
+        linhas = conexao.execute(
+            f"""
+            SELECT {_COLUNAS_DOCUMENTO}
+            FROM documentos d JOIN materias m ON m.id = d.materia_id
+            WHERE d.materia_id = ?
+            ORDER BY d.enviado_em DESC, d.id DESC
+            """,
+            (materia_id,),
+        ).fetchall()
+    return [dict(linha) for linha in linhas]
+
+
+def buscar_documento(caminho, documento_id):
+    """Devolve o documento (com nome e área da matéria) ou None."""
+    with abrir(caminho) as conexao:
+        linha = conexao.execute(
+            f"""
+            SELECT {_COLUNAS_DOCUMENTO}
+            FROM documentos d JOIN materias m ON m.id = d.materia_id
+            WHERE d.id = ?
+            """,
+            (documento_id,),
+        ).fetchone()
+    return dict(linha) if linha else None
+
+
+def buscar_documento_por_hash(caminho, materia_id, sha256):
+    """Procura o mesmo arquivo já enviado para esta matéria (evita duplicatas)."""
+    with abrir(caminho) as conexao:
+        linha = conexao.execute(
+            "SELECT id, nome_original FROM documentos WHERE materia_id = ? AND sha256 = ?",
+            (materia_id, sha256),
+        ).fetchone()
+    return dict(linha) if linha else None
+
+
+def listar_paginas(caminho, documento_id):
+    """Lista [{"numero": 1, "texto": "..."}, ...] em ordem de página."""
+    with abrir(caminho) as conexao:
+        linhas = conexao.execute(
+            "SELECT numero, texto FROM paginas WHERE documento_id = ? ORDER BY numero",
+            (documento_id,),
+        ).fetchall()
+    return [dict(linha) for linha in linhas]
+
+
+def arquivos_da_materia(caminho, materia_id):
+    """Nomes dos arquivos em disco que pertencem a uma matéria."""
+    with abrir(caminho) as conexao:
+        linhas = conexao.execute(
+            "SELECT arquivo FROM documentos WHERE materia_id = ?", (materia_id,)
+        ).fetchall()
+    return [linha["arquivo"] for linha in linhas]
+
+
+def excluir_documento(caminho, documento_id):
+    """Apaga o documento e (pela cascata) suas páginas. Devolve True se apagou."""
+    with abrir(caminho) as conexao:
+        cursor = conexao.execute("DELETE FROM documentos WHERE id = ?", (documento_id,))
         return cursor.rowcount > 0

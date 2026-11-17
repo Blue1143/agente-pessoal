@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block titulo %}Excluir documento · Meus Estudos{% endblock %}
+
+{% block conteudo %}
+<section class="cartao confirmacao">
+  <h2>Excluir documento?</h2>
+  <p>
+    Você está prestes a excluir <strong class="nome-documento">{{ documento.nome_original }}</strong>
+    da matéria <strong>{{ documento.materia_nome }}</strong>.
+  </p>
+  <p class="descricao">
+    O arquivo PDF e o texto extraído das {{ documento.total_paginas }} páginas serão
+    apagados. Esta ação não pode ser desfeita.
+  </p>
+
+  <div class="acoes">
+    {# Só este formulário (POST) apaga de fato. #}
+    <form method="post" action="{{ url_for('excluir_documento', documento_id=documento.id) }}">
+      <button type="submit" class="botao perigo">Sim, excluir</button>
+    </form>
+    <a class="botao" href="{{ url_for('ver_documento', documento_id=documento.id) }}">Cancelar</a>
+  </div>
+</section>
+{% endblock %}

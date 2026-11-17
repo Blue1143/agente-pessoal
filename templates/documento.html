@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block titulo %}{{ documento.nome_original }} · Meus Estudos{% endblock %}
+
+{% block conteudo %}
+<p class="trilha">
+  <a href="{{ url_for('inicio', area=documento.materia_area) }}">{{ documento.materia_area }}</a> ›
+  <a href="{{ url_for('ver_materia', materia_id=documento.materia_id) }}">{{ documento.materia_nome }}</a>
+</p>
+
+<header class="cabecalho-pagina">
+  <h1 class="nome-documento">{{ documento.nome_original }}</h1>
+  <p class="descricao">
+    {{ documento.total_paginas }} página{{ "s" if documento.total_paginas != 1 }} ·
+    {{ documento.tamanho_bytes | tamanho }} ·
+    texto em {{ documento.paginas_com_texto }} de {{ documento.total_paginas }}
+  </p>
+  <div class="acoes">
+    <a class="botao" href="{{ url_for('abrir_arquivo', documento_id=documento.id) }}" target="_blank" rel="noopener">Abrir PDF original</a>
+    <a class="botao perigo" href="{{ url_for('confirmar_exclusao_documento', documento_id=documento.id) }}">Excluir</a>
+  </div>
+</header>
+
+{% if mensagem and documento.paginas_com_texto %}<p class="aviso sucesso" role="status">{{ mensagem }}</p>{% endif %}
+
+{% if documento.paginas_com_texto == 0 %}
+{# PDF sem nenhum texto: provavelmente digitalizado. Não inventamos conteúdo. #}
+<section class="aviso alerta-grande" role="alert">
+  {% if mensagem %}<p class="aviso-topo">{{ mensagem }}</p>{% endif %}
+  <h2>Este PDF não tem texto extraível</h2>
+  <p>
+    {% if documento.total_paginas == 1 %}A página não contém{% else %}Nenhuma das {{ documento.total_paginas }} páginas contém{% endif %}
+    texto digital. Isso costuma
+    acontecer com documentos <strong>digitalizados</strong> (escaneados ou fotografados):
+    cada página é só uma imagem.
+  </p>
+  <p>
+    Para ler o conteúdo seria necessário <strong>OCR</strong> (reconhecimento óptico de
+    caracteres), que ainda não existe neste aplicativo. O arquivo original foi guardado e
+    pode ser aberto no botão acima.
+  </p>
+</section>
+{% else %}
+
+{% if documento.total_paginas > 1 %}
+<nav class="indice-paginas" aria-label="Ir para a página">
+  <span>Ir para a página:</span>
+  {% for pagina in paginas %}
+  <a href="#pagina-{{ pagina.numero }}" class="{% if not pagina.texto %}sem-texto{% endif %}">{{ pagina.numero }}</a>
+  {% endfor %}
+</nav>
+{% endif %}
+
+{% for pagina in paginas %}
+<section class="cartao pagina" id="pagina-{{ pagina.numero }}" aria-labelledby="titulo-pagina-{{ pagina.numero }}">
+  <header class="pagina-topo">
+    <h2 id="titulo-pagina-{{ pagina.numero }}">Página {{ pagina.numero }}</h2>
+    <a href="{{ url_for('abrir_arquivo', documento_id=documento.id) }}#page={{ pagina.numero }}"
+       target="_blank" rel="noopener">ver no PDF ↗</a>
+  </header>
+  {% if pagina.texto %}
+  <div class="texto-pagina">{{ pagina.texto }}</div>
+  {% else %}
+  <p class="sem-texto-aviso">
+    Sem texto extraível nesta página. Ela provavelmente é uma imagem
+    (precisaria de OCR para ser lida).
+  </p>
+  {% endif %}
+</section>
+{% endfor %}
+{% endif %}
+{% endblock %}

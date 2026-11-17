@@ -10,6 +10,11 @@
     ({{ materia.area }}). Esta ação não pode ser desfeita.
   </p>
   {% if materia.descricao %}<p class="descricao">{{ materia.descricao }}</p>{% endif %}
+  {% if materia.total_documentos %}
+  <p class="aviso erro-leve">
+    Atenção: {{ materia.total_documentos }} PDF{{ "s" if materia.total_documentos != 1 }} desta matéria também {{ "serão excluídos" if materia.total_documentos != 1 else "será excluído" }}.
+  </p>
+  {% endif %}
 
   <div class="acoes">
     {# Só este formulário (POST) apaga de fato. #}

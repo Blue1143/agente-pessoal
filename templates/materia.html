@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block titulo %}{{ materia.nome }} · Meus Estudos{% endblock %}
+
+{% block conteudo %}
+<p class="trilha"><a href="{{ url_for('inicio', area=materia.area) }}">← {{ materia.area }}</a></p>
+
+<header class="cabecalho-pagina">
+  <h1>{{ materia.nome }}</h1>
+  {% if materia.descricao %}<p class="descricao">{{ materia.descricao }}</p>{% endif %}
+</header>
+
+{% if mensagem %}<p class="aviso sucesso" role="status">{{ mensagem }}</p>{% endif %}
+
+<div class="grade">
+  <section class="cartao" aria-labelledby="titulo-envio">
+    <h2 id="titulo-envio">Enviar PDF</h2>
+
+    {% if erro %}<p class="aviso erro" role="alert">{{ erro }}</p>{% endif %}
+
+    {# enctype="multipart/form-data" é obrigatório para enviar arquivos #}
+    <form method="post" enctype="multipart/form-data"
+          action="{{ url_for('enviar_documento', materia_id=materia.id) }}">
+      <label for="arquivo">Arquivo</label>
+      <input id="arquivo" name="arquivo" type="file" accept=".pdf,application/pdf" required>
+      <p class="dica">Até {{ limite_mb }} MB e {{ limite_paginas }} páginas.
+        O texto é extraído no envio.</p>
+      <button type="submit" class="botao primario">Enviar</button>
+    </form>
+  </section>
+
+  <section class="cartao" aria-labelledby="titulo-docs">
+    <h2 id="titulo-docs">Documentos ({{ documentos | length }})</h2>
+    {% if documentos %}
+    <ul class="lista">
+      {% for doc in documentos %}
+      <li class="item">
+        <div class="item-texto">
+          <a class="link-materia" href="{{ url_for('ver_documento', documento_id=doc.id) }}"><strong>{{ doc.nome_original }}</strong></a>
+          <p>
+            {{ doc.total_paginas }} página{{ "s" if doc.total_paginas != 1 }} ·
+            {{ doc.tamanho_bytes | tamanho }} · enviado em {{ doc.enviado_em[8:10] }}/{{ doc.enviado_em[5:7] }}/{{ doc.enviado_em[:4] }}
+          </p>
+          {% if doc.paginas_com_texto == 0 %}
+          <span class="selo alerta">Sem texto — precisa de OCR</span>
+          {% elif doc.paginas_com_texto < doc.total_paginas %}
+          <span class="selo alerta">{{ doc.total_paginas - doc.paginas_com_texto }} página(s) sem texto</span>
+          {% endif %}
+        </div>
+        <a class="botao perigo pequeno" href="{{ url_for('confirmar_exclusao_documento', documento_id=doc.id) }}"
+           aria-label="Excluir {{ doc.nome_original }}">Excluir</a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="vazio">Nenhum PDF enviado para esta matéria ainda.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
